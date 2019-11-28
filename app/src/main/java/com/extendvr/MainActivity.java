@@ -7,9 +7,13 @@ import android.os.Bundle;
 
 
 public class MainActivity extends AppCompatActivity {
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        // initialise TrackingService class
         setContentView(R.layout.activity_main);
         startService(new Intent(this, TrackingService.class));
 

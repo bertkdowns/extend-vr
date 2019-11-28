@@ -36,18 +36,30 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
 
+import org.java_websocket.WebSocket;
+import org.java_websocket.handshake.ClientHandshake;
+import org.java_websocket.server.WebSocketServer;
+
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.StringTokenizer;
+import javax.websocket.OnClose;
+import javax.websocket.OnError;
+import javax.websocket.OnMessage;
+import javax.websocket.OnOpen;
+import javax.websocket.Session;
+import javax.websocket.server.ServerEndpoint;
 
 public class TrackingService extends Service {
     private Button btnCapture;
@@ -252,6 +264,53 @@ public class TrackingService extends Service {
         };
     }
 
+    // websocket server class
+    public class TrackingServer extends WebSocketServer {
+
+        // initialiser
+        public TrackingServer( int port ) {
+            super( new InetSocketAddress( port ) );
+        }
+
+        @Override
+        public void onOpen(WebSocket conn, ClientHandshake handshake ) {
+            conn.send("Welcome to the server!"); //This method sends a message to the new client
+            broadcast( "new connection: " + handshake.getResourceDescriptor() ); //This method sends a message to all clients connected
+            System.out.println( conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!" );
+        }
+
+        @Override
+        public void onClose( WebSocket conn, int code, String reason, boolean remote ) {
+            broadcast( conn + " has left the room!" );
+            System.out.println( conn + " has left the room!" );
+        }
+        @Override
+        public void onMessage( WebSocket conn, String message ) {
+            broadcast( message );
+            System.out.println( conn + ": " + message );
+        }
+
+
+        @Override
+        public void onStart() {
+            System.out.println("Server started!");
+            setConnectionLostTimeout(0);
+            setConnectionLostTimeout(100);
+        }
+        @Override
+        public void onError( WebSocket conn, Exception ex ) {
+            ex.printStackTrace();
+            if( conn != null ) {
+                // some errors like port binding failed may not be assignable to a specific websocket
+            }
+        }
+    }
+
+
+
+
+
+
     @Override
     public void onCreate() {
         Intent notificationIntent = new Intent(this, MainActivity.class);
@@ -269,6 +328,12 @@ public class TrackingService extends Service {
         // setup all the servery stuff
         // runs HTTPServerSetup, which runs JavaHTTPServer constantly to get new requests, I think..
         new Thread(new HTTPServerSetup()).start();
+        // start the websocket server
+        int port = 8887; // 843 flash policy port
+        TrackingServer s = new TrackingServer( port );
+        s.start();
+        System.out.println( "ChatServer started on port: " + s.getPort() );
+
         // add a starting color
         tracking.add(new ColorObject(){
             public boolean check(int color){
