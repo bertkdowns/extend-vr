@@ -7,37 +7,43 @@
     tools:context=".MainActivity">
 
     <Button
-        android:id="@+id/btnCapture"
-        android:layout_width="145dp"
-        android:layout_height="77dp"
-        android:layout_alignParentStart="true"
-        android:layout_alignParentBottom="true"
-        android:layout_marginStart="40dp"
-        android:layout_marginBottom="17dp"
-        android:text="CAPTURE" />
-
-    <Button
         android:id="@+id/lockFocus"
-        android:layout_width="135dp"
-        android:layout_height="88dp"
+        android:layout_width="199dp"
+        android:layout_height="79dp"
+        android:layout_below="@+id/null"
+        android:layout_alignParentStart="true"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:layout_marginStart="56dp"
-        android:layout_marginEnd="55dp"
-        android:layout_marginBottom="6dp"
-        android:layout_toEndOf="@+id/btnCapture"
-        android:text="LOKI" />
+        android:layout_marginStart="123dp"
+        android:layout_marginTop="77dp"
+        android:layout_marginEnd="120dp"
+        android:layout_marginBottom="19dp"
+        android:onClick="onLockExposureClick"
+        android:text="@string/lock_exposure" />
 
     <TextView
         android:id="@+id/textView"
-        android:layout_width="171dp"
-        android:layout_height="127dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
         android:layout_alignParentStart="true"
         android:layout_alignParentTop="true"
         android:layout_alignParentEnd="true"
-        android:layout_marginStart="108dp"
-        android:layout_marginTop="36dp"
-        android:layout_marginEnd="132dp"
+        android:layout_marginStart="60dp"
+        android:layout_marginTop="18dp"
+        android:layout_marginEnd="40dp"
         android:text="@string/welcome" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="473dp"
+        android:layout_below="@+id/textView"
+        android:layout_marginTop="30dp">
+
+        <LinearLayout
+            android:id="@+id/btdevicelist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical" />
+    </ScrollView>
 
 </RelativeLayout>

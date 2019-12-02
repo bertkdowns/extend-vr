@@ -4,6 +4,7 @@ import android.Manifest;
 import android.app.Notification;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.bluetooth.BluetoothDevice;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -19,6 +20,7 @@ import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageReader;
+import android.os.Binder;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -35,6 +37,9 @@ import android.view.TextureView;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
+
+import com.github.douglasjunior.bluetoothclassiclibrary.BluetoothService;
+import com.github.douglasjunior.bluetoothclassiclibrary.BluetoothStatus;
 
 import org.java_websocket.WebSocket;
 import org.java_websocket.handshake.ClientHandshake;
@@ -96,6 +101,7 @@ public class TrackingService extends Service {
     private volatile int CbCrPixelStride;
     private int imgHeight = 240;
     private int imgWidth = 320;
+    public TrackingServer trackingServer;
 
     private CameraDevice.StateCallback stateCallBack = new CameraDevice.StateCallback() {
         @Override
@@ -116,157 +122,8 @@ public class TrackingService extends Service {
         }
     };
 
-    // web server class
-    public class JavaHTTPServer implements Runnable{
-        // Client Connection via Socket Class
-        private Socket connect;
-        public JavaHTTPServer(Socket c) {
-            connect = c;
-        }
-        @Override
-        public void run() {
-            // we manage our particular client connection
-            BufferedReader in = null; PrintWriter out = null; //BufferedOutputStream dataOut = null;
-            String fileRequested = null;
-
-            try {
-                // we read characters from the client via input stream on the socket
-                in = new BufferedReader(new InputStreamReader(connect.getInputStream()));
-                // we get character output stream to client (for headers)
-                out = new PrintWriter(connect.getOutputStream());
-                // get first line of the request from the client
-                String input = in.readLine();
-                if(input == null) {Log.i(TAG,"string == null"); return;}
-                // we parse the request with a string tokenizer
-                StringTokenizer parse = new StringTokenizer(input);
-                String method = parse.nextToken().toUpperCase(); // we get the HTTP method of the client
-                fileRequested = parse.nextToken().toLowerCase();
-
-                // we support only GET and HEAD methods, we check
-                if (!method.equals("GET")  &&  !method.equals("HEAD")) {
-                    System.out.println("501 Not Implemented : " + method + " method.");
-                    //read content to return to client
-                    String notSupportedData = "Error 501: this method is not supported";
-                    int dataLength = notSupportedData.length();
-
-                    // we send HTTP Headers with data to client
-                    out.println("HTTP/1.1 501 Not Implemented");
-                    out.println("Server: Java HTTP Server from SSaurel : 1.0");
-                    out.println("Date: " + new Date());
-                    out.println("Content-type: text/html");
-                    out.println("Content-length: " + dataLength);
-                    out.println(); // blank line between headers and content, very important !
-                    // file
-                    out.print(notSupportedData);
-                    out.flush(); // flush character output stream buffer
-                } else {
-                    // GET or HEAD method
-                    if (method.equals("GET")) { // GET method so we return content
-                        String msg = "";
-                        Log.i(TAG,fileRequested);
-                        if(fileRequested.equals("/data")){
-                            processImage();
-                            msg = "";
-                            for(int i =0; i < tracking.get(0).object.size();i++){
-                                msg+=     tracking.get(0).object.get(i).x + ","
-                                        + tracking.get(0).object.get(i).y + ","
-                                        + tracking.get(0).object.get(i).width + ","
-                                        + tracking.get(0).object.get(i).height
-                                        + "\n";
-                            }
-                            // send HTTP Headers
-                            out.println("HTTP/1.1 200 OK");
-                            out.println("Server: Java HTTP Server : 1.0");
-                            out.println("Date: " + new Date());
-                            out.println("Access-Control-Allow-Origin: *");
-                            out.println("Content-type: text/plain");
-                            out.println("Content-length: " + msg.length());
-                            out.println(); // blank line between headers and content, very important !
-                            out.print(msg);
-                            out.flush(); // flush character output stream buffer
-                        } else if(fileRequested.equals("/lock")){
-                            // quickly check (if we have not been looking at the glowing green ball, that we are, and if so,
-                            // we need to lock the camera exposure
-                            if(!cameraExposureLocked){
-                                if( (Y[1]&0xff) > 95 && (Cb[1]&0xff) < 90 && (Cr[1]&0xff) < 70) {
-                                    lockExposure();
-                                    msg = "locked";
-                                } else {
-                                    msg = "bad color";
-                                    Log.i(TAG,Integer.toString(Y[1]& 0xff) + " " + Integer.toString(Cb[1] & 0xff)+ " " + Integer.toString( Cr[1] & 0xff));
-                                }
-                            } else {msg="already locked";}
-                            out.println("HTTP/1.1 200 OK");
-                            out.println("Server: Java HTTP Server : 1.0");
-                            out.println("Date: " + new Date());
-                            out.println("Access-Control-Allow-Origin: *");
-                            out.println("Content-type: text/plain");
-                            out.println("Content-length: " + msg.length());
-                            out.println(); // blank line between headers and content, very important !
-                            out.print(msg);
-                            out.flush(); // flush character output stream buffer
-                        } else {
-                            msg = "Error 418: I'm a teapot";
-                            out.println("HTTP/1.1 418 I'm a teapot");
-                            out.println("Server: Java HTTP Server : 1.0");
-                            out.println("Date: " + new Date());
-                            out.println("Access-Control-Allow-Origin: *");
-                            out.println("Content-type: text/plain");
-                            out.println("Content-length: " + msg.length());
-                            out.println(); // blank line between headers and content, very important !
-                            out.print(msg);
-                            out.flush(); // flush character output stream buffer
-                        }
-
-                    }
-                }
-
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
-            } finally {
-                try {
-                    in.close();
-                    out.close();
-                    connect.close(); // we close socket connection
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }
-
-
-        }
-
-    }
-    // web server stuff
-    // port to listen connection
-    static final int PORT = 8080;
-    public class HTTPServerSetup implements Runnable{
-        @Override
-        public void run(){
-            try {
-                Log.i(TAG,"Hello, world!");
-                ServerSocket serverConnect = new ServerSocket(PORT);
-                Log.i(TAG,"Server started.\nListening for connections on port : " + PORT + " ...\n");
-
-                // we listen until user halts server execution
-                while (true) {
-                    JavaHTTPServer myServer = new JavaHTTPServer(serverConnect.accept());
-                    Log.i(TAG, "the server connection opened");
-
-                    // create dedicated thread to manage the client connection
-                    Thread thread = new Thread(myServer);
-                    thread.start();
-                }
-
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        };
-    }
-
     // websocket server class
     public class TrackingServer extends WebSocketServer {
-
         // initialiser
         public TrackingServer( int port ) {
             super( new InetSocketAddress( port ) );
@@ -274,22 +131,19 @@ public class TrackingService extends Service {
 
         @Override
         public void onOpen(WebSocket conn, ClientHandshake handshake ) {
-            conn.send("Welcome to the server!"); //This method sends a message to the new client
-            broadcast( "new connection: " + handshake.getResourceDescriptor() ); //This method sends a message to all clients connected
-            System.out.println( conn.getRemoteSocketAddress().getAddress().getHostAddress() + " entered the room!" );
+            System.out.println( conn.getRemoteSocketAddress().getAddress().getHostAddress() + " joined the tracking feed" );
+            trackingLoop();
         }
 
         @Override
         public void onClose( WebSocket conn, int code, String reason, boolean remote ) {
-            broadcast( conn + " has left the room!" );
-            System.out.println( conn + " has left the room!" );
-        }
-        @Override
-        public void onMessage( WebSocket conn, String message ) {
-            broadcast( message );
-            System.out.println( conn + ": " + message );
+            System.out.println( conn + " left the tracking feed" );
         }
 
+        @Override
+        public void onMessage( WebSocket conn, String message ) {
+
+        }
 
         @Override
         public void onStart() {
@@ -297,6 +151,7 @@ public class TrackingService extends Service {
             setConnectionLostTimeout(0);
             setConnectionLostTimeout(100);
         }
+
         @Override
         public void onError( WebSocket conn, Exception ex ) {
             ex.printStackTrace();
@@ -306,11 +161,46 @@ public class TrackingService extends Service {
         }
     }
 
+    boolean isTracking = false;
+    public void trackingLoop(){
+        // don't run this if already tracking
+        if(isTracking) return;
+        isTracking = true;
+        long startTime;
+        long endTime;
+        long duration;
+        String msg;
+        while(trackingServer.getConnections().size() > 0){
+            startTime = System.nanoTime();
+            processImage();
+            msg = "";
+            for(int i =0; i < tracking.get(0).object.size();i++){
+                msg+=     tracking.get(0).object.get(i).x + ","
+                        + tracking.get(0).object.get(i).y + ","
+                        + tracking.get(0).object.get(i).width + ","
+                        + tracking.get(0).object.get(i).height
+                        + "\n";
+            }
+            trackingServer.broadcast(msg);
+            endTime = System.nanoTime();
+            duration = (endTime - startTime)/1000000;//get milliseconds operating time
+            if(duration < 33){
+                // track 30 times per second -30fps
+                try {
+                    Thread.sleep(33 - duration);
+                } catch (InterruptedException e){
+                    e.printStackTrace();
+                }
+            }
 
 
+        }
+        isTracking = false;
+
+    }
 
 
-
+    //////////////////////////////////////////////////////////////////////////////////////////////////
     @Override
     public void onCreate() {
         Intent notificationIntent = new Intent(this, MainActivity.class);
@@ -319,20 +209,19 @@ public class TrackingService extends Service {
                 notificationIntent, 0);
 
         Notification notification = new NotificationCompat.Builder(this)
-                .setContentTitle("My Camera Server Service")
-                .setContentText("Making Entities meet...")
+                .setContentTitle("ExtendVR Tracking Service")
+                .setContentText("Currently running")
                 .setContentIntent(pendingIntent).build();
 
         startForeground(1337, notification);
         startBackgroundThread();
-        // setup all the servery stuff
-        // runs HTTPServerSetup, which runs JavaHTTPServer constantly to get new requests, I think..
-        new Thread(new HTTPServerSetup()).start();
         // start the websocket server
         int port = 8887; // 843 flash policy port
-        TrackingServer s = new TrackingServer( port );
-        s.start();
-        System.out.println( "ChatServer started on port: " + s.getPort() );
+        trackingServer = new TrackingServer( port );
+        trackingServer.start();
+        System.out.println( "ChatServer started on port: " + trackingServer.getPort() );
+        // initalise the bluetooth service stuff:
+        onCreate_Bluetooth();
 
         // add a starting color
         tracking.add(new ColorObject(){
@@ -342,6 +231,7 @@ public class TrackingService extends Service {
                 return false;
             }
         });
+
 
     }
     @Override
@@ -440,15 +330,22 @@ public class TrackingService extends Service {
             e.printStackTrace();
         }
     }
-    private void lockExposure(){
-        // locks the exposure
-        captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
-        try{
-            cameraCaptureSessions.setRepeatingRequest(captureRequestBuilder.build(), null, mBackgroundHandler);
-        } catch (CameraAccessException e){
-            e.printStackTrace();
-        }
-
+    public int lockExposure(){
+        if(!cameraExposureLocked){
+            if( (Y[1]&0xff) > 95 && (Cb[1]&0xff) < 90 && (Cr[1]&0xff) < 70) {
+                // lock the exposure
+                captureRequestBuilder.set(CaptureRequest.CONTROL_AE_LOCK, true);
+                try{
+                    cameraCaptureSessions.setRepeatingRequest(captureRequestBuilder.build(), null, mBackgroundHandler);
+                } catch (CameraAccessException e){
+                    e.printStackTrace();
+                }
+                return 0; // exposure locked successfully
+            } else {
+                Log.i(TAG,Integer.toString(Y[1]& 0xff) + " " + Integer.toString(Cb[1] & 0xff)+ " " + Integer.toString( Cr[1] & 0xff));
+                return 1; // color not right
+            }
+        } else {return 2;}//exposure already locked
     }
 
 
@@ -504,7 +401,7 @@ public class TrackingService extends Service {
         }
     }
 
-
+    /////////////////////////////////////////////////////////////////////////////////////////////////////
 
     class TrackingObject{
         public TrackingObject(int X,int Y){
@@ -697,8 +594,50 @@ public class TrackingService extends Service {
     }
 
 
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // binding stuff - to bind it to the main activity for gui things
+    // Binder given to clients
+    private final IBinder binder = new LocalBinder();
+    public class LocalBinder extends Binder {
+        TrackingService getService() {
+            // Return this instance of LocalService so clients can call public methods
+            return TrackingService.this;
+        }
+    }
+
+
     @Override
     public IBinder onBind(Intent intent) {
-        return null;
+        return binder;
     }
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // bluetooth stuff
+    BluetoothService service;
+    private void onCreate_Bluetooth(){
+        // onCreate routine for bluetooth, seperated out for easy reading
+        service = BluetoothService.getDefaultInstance();
+        service.setOnEventCallback(new BluetoothService.OnBluetoothEventCallback() {
+            @Override
+            public void onDataRead(byte[] buffer, int length) {
+                Log.i("BLUETOOTH_MSG",buffer.toString());
+            }
+
+            @Override
+            public void onStatusChange(BluetoothStatus status) { }
+            @Override
+            public void onDeviceName(String deviceName) { }
+            @Override
+            public void onToast(String message) { }
+            @Override
+            public void onDataWrite(byte[] buffer) { }
+        });
+    }
+
+    public int connectToBTDevice(BluetoothDevice device){
+
+        return 0;
+    };
+
+
 }
