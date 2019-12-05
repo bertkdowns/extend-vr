@@ -10,12 +10,17 @@ import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.AppCompatTextView;
+import android.util.Log;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import com.github.douglasjunior.bluetoothclassiclibrary.BluetoothConfiguration;
 import com.github.douglasjunior.bluetoothclassiclibrary.BluetoothService;
+import com.github.douglasjunior.bluetoothlowenergylibrary.BluetoothLeService;
+
+import java.util.UUID;
 
 
 public class MainActivity extends AppCompatActivity {
@@ -35,8 +40,24 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
         final LinearLayout btDeviceList = (LinearLayout) findViewById(R.id.btdevicelist);
         // bluetooth scanning stuff
+        BluetoothConfiguration config = new BluetoothConfiguration();
+        config.context = getApplicationContext();
+        config.bluetoothServiceClass = BluetoothLeService.class;
+        config.bufferSize = 1024;
+        config.characterDelimiter = '\n';
+        config.deviceName = "Your App Name";
+        config.callListenersInMainThread = true;
+
+        config.uuidService = UUID.fromString("0000ffe0-0000-1000-8000-00805f9b34fb"); // Required
+        config.uuidCharacteristic = UUID.fromString("0000ffe1-0000-1000-8000-00805f9b34fb"); // Required
+        config.transport = BluetoothDevice.TRANSPORT_LE; // Required for dual-mode devices
+        config.uuid = null; // Used to filter found devices. Set null to find all devices.
+        BluetoothService.init(config);
+
         BluetoothService service = BluetoothService.getDefaultInstance();
         service.setOnScanCallback(new BluetoothService.OnBluetoothScanCallback() {
             // scan, and list the devices
@@ -49,6 +70,7 @@ public class MainActivity extends AppCompatActivity {
                     // when the user clicks on a device, send it to the trackingService to connect to in background.
                     @Override
                     public void onClick(View v) {
+
                         BTTextView btTextView = (BTTextView) v;
                         trackingService.connectToBTDevice(btTextView.device);
                     }
@@ -73,6 +95,7 @@ public class MainActivity extends AppCompatActivity {
         super.onStart();
         // Bind to LocalService
         Intent intent = new Intent(this, TrackingService.class);
+        startService(intent);
         bindService(intent, connection, Context.BIND_AUTO_CREATE);
     }
 

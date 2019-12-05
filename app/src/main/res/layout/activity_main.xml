@@ -10,7 +10,6 @@
         android:id="@+id/lockFocus"
         android:layout_width="199dp"
         android:layout_height="79dp"
-        android:layout_below="@+id/null"
         android:layout_alignParentStart="true"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
@@ -35,9 +34,11 @@
 
     <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="473dp"
+        android:layout_height="500dp"
+        android:layout_above="@+id/lockFocus"
         android:layout_below="@+id/textView"
-        android:layout_marginTop="30dp">
+        android:layout_marginTop="72dp"
+        android:layout_marginBottom="8dp">
 
         <LinearLayout
             android:id="@+id/btdevicelist"

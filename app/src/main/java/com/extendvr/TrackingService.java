@@ -102,6 +102,24 @@ public class TrackingService extends Service {
     private int imgHeight = 240;
     private int imgWidth = 320;
     public TrackingServer trackingServer;
+    public class Quaternion{
+        float w = 1;
+        float x = 0;
+        float y = 0;
+        float z = 0;
+        public String toCSV(){
+            return w + "," + x + "," + y + "," + z;
+        }
+    }
+    public Quaternion q = new Quaternion();
+    public class Hand{
+        int thumb = 0;
+        int index = 0;
+        int middle = 0;
+        int ring = 0;
+        int pinkie = 0;
+    }
+    public Hand rightHand = new Hand();
 
     private CameraDevice.StateCallback stateCallBack = new CameraDevice.StateCallback() {
         @Override
@@ -215,6 +233,7 @@ public class TrackingService extends Service {
 
         startForeground(1337, notification);
         startBackgroundThread();
+
         // start the websocket server
         int port = 8887; // 843 flash policy port
         trackingServer = new TrackingServer( port );
@@ -238,6 +257,7 @@ public class TrackingService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         Log.d(TAG, "onStartCommand flags " + flags + " startId " + startId);
         openCamera();
+
         return super.onStartCommand(intent, flags, startId);
     }
 
@@ -617,9 +637,21 @@ public class TrackingService extends Service {
     private void onCreate_Bluetooth(){
         // onCreate routine for bluetooth, seperated out for easy reading
         service = BluetoothService.getDefaultInstance();
+
         service.setOnEventCallback(new BluetoothService.OnBluetoothEventCallback() {
             @Override
             public void onDataRead(byte[] buffer, int length) {
+                if (buffer != null && buffer.length > 12) {
+                    q.w = ((buffer[0] & 0xff) << 8) | (buffer[1] & 0xff);
+                    q.x = ((buffer[2] & 0xff) << 8) | (buffer[3] & 0xff);
+                    q.y = ((buffer[4] & 0xff) << 8) | (buffer[5] & 0xff);
+                    q.z = ((buffer[6] & 0xff) << 8) | (buffer[7] & 0xff);
+                    rightHand.thumb = buffer[8];
+                    rightHand.index = buffer[9];
+                    rightHand.middle = buffer[10];
+                    rightHand.ring = buffer[11];
+                    rightHand.pinkie = buffer[12];
+                }
                 Log.i("BLUETOOTH_MSG",buffer.toString());
             }
 
@@ -634,9 +666,9 @@ public class TrackingService extends Service {
         });
     }
 
-    public int connectToBTDevice(BluetoothDevice device){
-
-        return 0;
+    public void connectToBTDevice(BluetoothDevice device){
+        Log.i("BLUETOOTH","Device chosen");
+        service.connect(device);
     };
 
 
