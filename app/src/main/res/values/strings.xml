@@ -2,4 +2,5 @@
     <string name="app_name">ExtendVR Server</string>
     <string name="welcome">Welcome to ExtendVR! Load up a compatible page to get started!</string>
     <string name="lock_exposure">Lock the exposure</string>
+    <string name="launch_browser">Launch VR Browser</string>
 </resources>

@@ -67,8 +67,6 @@ import javax.websocket.Session;
 import javax.websocket.server.ServerEndpoint;
 
 public class TrackingService extends Service {
-    private Button btnCapture;
-    private TextureView textureView;
     // check state  orientation of output image
     private static final SparseIntArray ORIENTATIONS = new SparseIntArray();
     static {
