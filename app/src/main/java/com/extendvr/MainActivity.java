@@ -1,6 +1,5 @@
 package com.extendvr;
 
-
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
@@ -22,6 +21,8 @@ import com.github.douglasjunior.bluetoothclassiclibrary.BluetoothConfiguration;
 import com.github.douglasjunior.bluetoothclassiclibrary.BluetoothService;
 import com.github.douglasjunior.bluetoothlowenergylibrary.BluetoothLeService;
 
+import org.java_websocket.WebSocket;
+
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -31,8 +32,10 @@ public class MainActivity extends AppCompatActivity {
     TrackingSocket socket = new TrackingSocket(8887);
     Context activityContext = this;
     boolean exposureLocked = false;
+    boolean visionTrackerBound = false;
     BluetoothController rightHand = new BluetoothController();
     BluetoothController leftHand = new BluetoothController();
+    private String TAG = "Main";
 
     // bluetooth text view class - for showing + storing information about the bluetooth devices.
     public class BTTextView extends AppCompatTextView {
@@ -44,36 +47,66 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+        super.onCreate(null);
         setContentView(R.layout.activity_main);
-        visionTracker = new VisionTracker(this);
-        visionTracker.dataProcessRoutine = new VisionTracker.onDataListener(){
-            @Override
-            public void onData(ArrayList<VisionTracker.ColorObject> data){
-                sendNewTrackingData(data);
+        class myThread extends Thread{
+            public void run(){
+                Intent intent = new Intent(getApplicationContext(), VisionTracker.class);
+                bindService(intent, connection, Context.BIND_AUTO_CREATE);
             }
-        };
+        }
+        new myThread().run();
+
+
 
         socket.start();
-        visionTracker.cameraContainer.start();
         // bluetooth scanning stuff
         _bluetooth_onCreate();
 
-
+        socket.messageListener = new TrackingSocket.OnMessageListener(){
+           @Override
+           public void onMessage(WebSocket conn, String message){
+               if(message.equals("y")){
+                   socket.broadcast(visionTracker.trackingImage.Y);
+               } else  if(message.equals("Cb")){
+                   socket.broadcast(visionTracker.trackingImage.Cb);
+               } else if(message.equals("Cr")){
+                   socket.broadcast(visionTracker.trackingImage.Cr);
+               }
+           }
+        };
     }
-
     @Override
-    protected void onStart() {
-        super.onStart();
-
+    protected  void onDestroy(){
+        unbindService(connection);
+        super.onDestroy();
     }
 
-    @Override
-    protected void onStop() {
-        super.onStop();
-        //visionTracker.cameraContainer.stop();
+    /** Defines callbacks for service binding, passed to bindService() */
+    private ServiceConnection connection = new ServiceConnection() {
 
-    }
+        @Override
+        public void onServiceConnected(ComponentName className,
+                                       IBinder service) {
+            // We've bound to LocalService, cast the IBinder and get LocalService instance
+            VisionTracker.VisionBinder binder = (VisionTracker.VisionBinder) service;
+            visionTracker = binder.getService();
+            visionTrackerBound = true;
+            visionTracker.dataProcessRoutine = new VisionTracker.onDataListener(){
+                @Override
+                public void onData(ArrayList<VisionTracker.ColorObject> data){
+                    sendNewTrackingData(data);
+                }
+            };
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName arg0) {
+            visionTrackerBound = false;
+        }
+    };
+
+
 
     private void _bluetooth_onCreate(){
 
@@ -134,31 +167,55 @@ public class MainActivity extends AppCompatActivity {
         // Call a method from the LocalService.
         // However, if this call were something that might hang, then this request should
         // occur in a separate thread to avoid slowing down the activity performance.
-        int code = visionTracker.cameraContainer.lockExposure();
-        if(code == 0) {Toast.makeText(this, "Done!", Toast.LENGTH_SHORT).show();exposureLocked=true;}
-        else if(code==1)Toast.makeText(this,"Invalid color!",Toast.LENGTH_SHORT).show();
-        else if(code==2)Toast.makeText(this,"Already locked",Toast.LENGTH_SHORT).show();
-        else Toast.makeText(this,"error?!?", Toast.LENGTH_SHORT).show();
+        if(visionTrackerBound){
+            int code = visionTracker.lockExposure();
+            if(code == 0) {Toast.makeText(this, "Done!", Toast.LENGTH_SHORT).show();exposureLocked=true;}
+            else if(code==1)Toast.makeText(this,"Invalid color!",Toast.LENGTH_SHORT).show();
+            else if(code==2)Toast.makeText(this,"Already locked",Toast.LENGTH_SHORT).show();
+            else Toast.makeText(this,"error?!?", Toast.LENGTH_SHORT).show();
+        } else{
+            Toast.makeText(this,"error:Vision tracker class not bound",Toast.LENGTH_SHORT).show();
+        }
+
 
     }
 
 
     public void sendNewTrackingData(ArrayList<VisionTracker.ColorObject> data){
+        // find largest object the tracker picked up
+        VisionTracker.TrackingObject bestRightObject = null;
+        int largestAreaSoFar = 0;
+        for(int i = 0; i < data.get(0).object.size();i++){
+            if (data.get(0).object.get(i).width * data.get(0).object.get(i).height > largestAreaSoFar){
+                bestRightObject = data.get(0).object.get(i);
+                largestAreaSoFar = data.get(0).object.get(i).width * data.get(0).object.get(i).height;
+            }
+        }
+
         String msg = "";
         msg += rightHand.w + "," + rightHand.x + "," + rightHand.y + "," + rightHand.z + ","
                 + rightHand.thumb + "," + rightHand.indexFinger + "," + rightHand.middleFinger + ","
                 + rightHand.ringFinger + "," + rightHand.pinkie + "\n";
         msg+= "\n"; // left hand controller data
-        msg+= "\n"; // break
+        if(bestRightObject != null){
+            msg+= bestRightObject.x + ","
+                    + bestRightObject.y + ","
+                    + bestRightObject.width + ","
+                    + bestRightObject.height;
+        } else msg+="\n";
+        msg+="\n";
+
         // right hand information
 
-        for(int i =0; i < data.get(0).object.size();i++){
+        // show all objects found (for debug purporses)
+        /*for(int i =0; i < data.get(0).object.size();i++){
             msg+=     data.get(0).object.get(i).x + ","
                     + data.get(0).object.get(i).y + ","
                     + data.get(0).object.get(i).width + ","
                     + data.get(0).object.get(i).height
                     + "\n";
-        }
+            Log.i(TAG, Integer.toString(data.get(0).object.get(i).x));
+        }*/
         // line break, then next left hand information
 
         socket.broadcast(msg);
@@ -167,7 +224,7 @@ public class MainActivity extends AppCompatActivity {
 
     public void onLaunchBrowserClick(View v){
         if(!exposureLocked){
-            Toast.makeText(this,"exposure must be locked first",Toast.LENGTH_SHORT);
+            Toast.makeText(this,"exposure must be locked first",Toast.LENGTH_SHORT).show();
             return;
         }
         //else, good to launch browser

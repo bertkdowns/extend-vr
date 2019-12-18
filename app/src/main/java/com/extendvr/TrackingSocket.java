@@ -24,14 +24,12 @@ public class TrackingSocket extends WebSocketServer {
 
     @Override
     public void onMessage( WebSocket conn, String message ) {
-
+        messageListener.onMessage(conn,message);
     }
 
     @Override
     public void onStart() {
         System.out.println("Server started!");
-        setConnectionLostTimeout(0);
-        setConnectionLostTimeout(100);
     }
 
     @Override
@@ -39,6 +37,12 @@ public class TrackingSocket extends WebSocketServer {
         ex.printStackTrace();
         if( conn != null ) {
             // some errors like port binding failed may not be assignable to a specific websocket
+        }
+    }
+    public OnMessageListener messageListener = new OnMessageListener();
+    static class OnMessageListener {
+        public void onMessage(WebSocket conn, String message){
+
         }
     }
 }

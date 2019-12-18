@@ -26,10 +26,10 @@ public class BluetoothController {
             @Override
             public void onDataRead(byte[] buffer, int length) {
                 if (buffer != null && buffer.length > 12) {
-                    w = ((buffer[0] & 0xff) << 8) | (buffer[1] & 0xff);
-                    x = ((buffer[2] & 0xff) << 8) | (buffer[3] & 0xff);
-                    y = ((buffer[4] & 0xff) << 8) | (buffer[5] & 0xff);
-                    z = ((buffer[6] & 0xff) << 8) | (buffer[7] & 0xff);
+                    w = ((buffer[0] << 8) | (buffer[1] & 0xff) )/1000F;
+                    x = ((buffer[2] << 8) | (buffer[3] & 0xff) )/1000F;
+                    y = ((buffer[4] << 8) | (buffer[5] & 0xff) )/1000F;
+                    z = ((buffer[6] << 8) | (buffer[7] & 0xff) )/1000F;
                     thumb = buffer[8] & 0xFF * 255/6; // actual readings will be between 0 and 255 in final version, for consistency between controllers of
                     // different accuracy, rather than between 0 and 6
                     indexFinger = buffer[9] & 0xFF * 255/6;
