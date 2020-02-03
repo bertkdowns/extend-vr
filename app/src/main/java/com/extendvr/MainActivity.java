@@ -230,7 +230,7 @@ public class MainActivity extends AppCompatActivity {
         //else, good to launch browser
         CustomTabsIntent.Builder builder = new CustomTabsIntent.Builder();
         CustomTabsIntent customTabsIntent = builder.build();
-        customTabsIntent.launchUrl(this, Uri.parse("http://localhost:12345/"));
+        customTabsIntent.launchUrl(this, Uri.parse("http://192.168.1.16:8000/extendvr-test.html"));
     }
 
 }

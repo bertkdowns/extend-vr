@@ -158,7 +158,7 @@ public class VisionTracker extends Service {
             data.get(c).object.clear();
         }
 
-        // ACTUAL TRACKING ALGORITHM
+        // tracking algorithm - check every 15th pixel per row/column and
         for (int y = 0; y < trackingImage.height; y += 15)
             for (int x = 0; x < trackingImage.width; x += 15) {
                 int color = getTrackingColor(trackingImage.getPixel(x, y), -1);
@@ -175,83 +175,9 @@ public class VisionTracker extends Service {
                 }
                 if (tracked) continue;
                 // okay, we got a lock on the object! move up and down to find it's vertical center, then left and right to find its width + horizontal centre, then up and down again to find it's height
-                TrackingObject newObject = new TrackingObject(x, y);
-                int x1 = x;
-                int y1 = y;
-                while (y1 > 0 && getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
-                    y1 = y1 - 1;
-                }
-                newObject.y = y1;
-                x1 = x;
-                y1 = y;
-                while (y1 < trackingImage.height){
-                    y1++;
-                    if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
-                        if(getTrackingColor(trackingImage.getPixel(x1 + 2, y1), color) != color
-                                && getTrackingColor(trackingImage.getPixel(x1 - 2, y1), color) != color ){
-                            break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
-                        }
-                    } // else contionue
-                }
-                newObject.farY = y1;
-                // find the centre y coordinate from the average of the 2 y values
-                int ycentre = (newObject.farY + newObject.y) / 2;
-                y1 = ycentre;
-                x1 = x;
-                // now do the same thing except on the other axis (x axis)
-                while (x1 > 0){
-                    x1 = x1 - 1;
-                    if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
-                        if(getTrackingColor(trackingImage.getPixel(x1, y1 - 2), color) != color
-                                && getTrackingColor(trackingImage.getPixel(x1, y1 + 2), color) != color ){
-                            break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
-                        }
-                    } // else contionue
-                }
-                newObject.x = x1;
-                x1 = x;
-                while (x1 < trackingImage.width){
-                    x1 = x1 +1;
-                    if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
-                        if(getTrackingColor(trackingImage.getPixel(x1, y1 - 2), color) != color
-                                && getTrackingColor(trackingImage.getPixel(x1, y1 + 2), color) != color ){
-                            break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
-                        }
-                    } // else contionue
-                }
-                newObject.farX = x1;
-                // now find the centre  x coordinate
-                int xcentre = (newObject.farX + newObject.x) / 2;
-                // now find the actual height, now that we are measuring along the centre of the ball
-                x1 = xcentre;
-                y1 = ycentre;
-                while (y1 > 0){
-                    y1 = y1 - 1;
-                    if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
-                        if(getTrackingColor(trackingImage.getPixel(x1 + 2, y1), color) != color
-                                && getTrackingColor(trackingImage.getPixel(x1 - 2, y1), color) != color ){
-                            break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
-                        }
-                    } // else contionue
-                }
-                newObject.y = y1;
-                x1 = xcentre;
-                y1 = ycentre;
-                while (y1 < trackingImage.height){
-                    y1++;
-                    if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
-                        if(getTrackingColor(trackingImage.getPixel(x1 + 2, y1), color) != color
-                                && getTrackingColor(trackingImage.getPixel(x1 - 2, y1), color) != color ){
-                            break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
-                        }
-                    } // else contionue
-                }
-                newObject.farY = y1;
-                // all done!
-                data.get(color).object.add(newObject);
+                scoutObject(x,y,color);
             }
-
-
+        // finished tracking!
         // now we can calculate all the heights and widths from the start and end co-ordinates
         for (
                 int colorGroup = 0; colorGroup < data.size(); colorGroup++) {
@@ -265,6 +191,85 @@ public class VisionTracker extends Service {
         dataProcessRoutine.onData(data);
         processing.set(false);
     }
+    }
+
+    private void scoutObject(int x, int y, int color){
+        // this routine scouts out a given xy co-ordinate (that we know is the correct color)
+        // to find the width, height etc of the object and store it in the trackingobject
+        TrackingObject newObject = new TrackingObject(x, y);
+        int x1 = x;
+        int y1 = y;
+        while (y1 > 0 && getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
+            y1 = y1 - 1;
+        }
+        newObject.y = y1;
+        x1 = x;
+        y1 = y;
+        while (y1 < trackingImage.height){
+            y1++;
+            if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
+                if(getTrackingColor(trackingImage.getPixel(x1 + 2, y1), color) != color
+                        && getTrackingColor(trackingImage.getPixel(x1 - 2, y1), color) != color ){
+                    break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
+                }
+            } // else contionue
+        }
+        newObject.farY = y1;
+        // find the centre y coordinate from the average of the 2 y values
+        int ycentre = (newObject.farY + newObject.y) / 2;
+        y1 = ycentre;
+        x1 = x;
+        // now do the same thing except on the other axis (x axis)
+        while (x1 > 0){
+            x1 = x1 - 1;
+            if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
+                if(getTrackingColor(trackingImage.getPixel(x1, y1 - 2), color) != color
+                        && getTrackingColor(trackingImage.getPixel(x1, y1 + 2), color) != color ){
+                    break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
+                }
+            } // else contionue
+        }
+        newObject.x = x1;
+        x1 = x;
+        while (x1 < trackingImage.width){
+            x1 = x1 +1;
+            if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
+                if(getTrackingColor(trackingImage.getPixel(x1, y1 - 2), color) != color
+                        && getTrackingColor(trackingImage.getPixel(x1, y1 + 2), color) != color ){
+                    break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
+                }
+            } // else contionue
+        }
+        newObject.farX = x1;
+        // now find the centre  x coordinate
+        int xcentre = (newObject.farX + newObject.x) / 2;
+        // now find the actual height, now that we are measuring along the centre of the ball
+        x1 = xcentre;
+        y1 = ycentre;
+        while (y1 > 0){
+            y1 = y1 - 1;
+            if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
+                if(getTrackingColor(trackingImage.getPixel(x1 + 2, y1), color) != color
+                        && getTrackingColor(trackingImage.getPixel(x1 - 2, y1), color) != color ){
+                    break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
+                }
+            } // else contionue
+        }
+        newObject.y = y1;
+        x1 = xcentre;
+        y1 = ycentre;
+        while (y1 < trackingImage.height){
+            y1++;
+            if(getTrackingColor(trackingImage.getPixel(x1, y1), color) != color ){
+                if(getTrackingColor(trackingImage.getPixel(x1 + 2, y1), color) != color
+                        && getTrackingColor(trackingImage.getPixel(x1 - 2, y1), color) != color ){
+                    break; // this also checks if nearby pixels are not the right color, to not rely on a single reading
+                }
+            } // else contionue
+        }
+        newObject.farY = y1;
+        // all done!
+        data.get(color).object.add(newObject);
     }
 
 

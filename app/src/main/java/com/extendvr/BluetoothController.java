@@ -30,12 +30,12 @@ public class BluetoothController {
                     x = ((buffer[2] << 8) | (buffer[3] & 0xff) )/1000F;
                     y = ((buffer[4] << 8) | (buffer[5] & 0xff) )/1000F;
                     z = ((buffer[6] << 8) | (buffer[7] & 0xff) )/1000F;
-                    thumb = buffer[8] & 0xFF * 255/6; // actual readings will be between 0 and 255 in final version, for consistency between controllers of
+                    thumb = buffer[8] & 0xFF; // actual readings will be between 0 and 99 in final version, for consistency between controllers of
                     // different accuracy, rather than between 0 and 6
-                    indexFinger = buffer[9] & 0xFF * 255/6;
-                    middleFinger = buffer[10] & 0xFF * 255/6;
-                    ringFinger = buffer[11] & 0xFF * 255/6;
-                    pinkie = buffer[12] & 0xFF * 255/6;
+                    indexFinger = (buffer[9] & 0xFF) * 99/6;
+                    middleFinger = (buffer[10] & 0xFF) * 99/6;
+                    ringFinger = (buffer[11] & 0xFF) * 99/6;
+                    pinkie = (buffer[12] & 0xFF) * 99/6;
                 }
                 Log.i("BLUETOOTH_MSG",buffer.toString());
             }
