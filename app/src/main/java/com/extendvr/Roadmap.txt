@@ -1,0 +1,10 @@
+# Roadmap
+
+- make controllers sync to phone - should work
+- get them to work with my old aframe stuff so I can show the world my finger tracked positional tracked controllers - don't bother
+- learn how to use hobo_vr posers -done
+- learn how to use sockets in python -done
+- add debug features to android app for color tracking
+- figure out if I can implement finger tracking in hobo_Vr, else make it register button presses
+- Connect phone vr app to hobo_vr via websockets
+- Stream video to phone from hobo_vr
